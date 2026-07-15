@@ -1,0 +1,589 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MapaRutas</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root { --ink: #1a1a2e; --paper: #f5f0e8; --accent: #c0392b; --accent2: #2980b9; --muted: #7f8c8d; --card: #fffdf8; --border: #d5cfc3; }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: 'DM Sans', sans-serif; background: var(--paper); color: var(--ink); height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
+  header { background: var(--ink); color: white; padding: 10px 20px; display: flex; align-items: center; justify-content: space-between; flex-shrink: 0; box-shadow: 0 2px 12px rgba(0,0,0,0.3); gap: 12px; }
+  .logo { font-family: 'DM Serif Display', serif; font-size: 1.2rem; white-space: nowrap; }
+  .logo span { color: #e74c3c; }
+  .sheet-selector { display: flex; align-items: center; gap: 8px; flex: 1; max-width: 340px; }
+  .sheet-selector label { font-size: 0.75rem; color: rgba(255,255,255,0.6); white-space: nowrap; }
+  .sheet-select { flex: 1; padding: 6px 10px; background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.25); border-radius: 8px; color: white; font-family: 'DM Sans', sans-serif; font-size: 0.82rem; outline: none; cursor: pointer; }
+  .sheet-select option { background: #1a1a2e; color: white; }
+  .sheet-select:disabled { opacity: 0.4; cursor: not-allowed; }
+  .badge { background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); padding: 4px 10px; border-radius: 20px; font-size: 0.72rem; color: rgba(255,255,255,0.7); white-space: nowrap; }
+  .main { display: flex; flex: 1; overflow: hidden; }
+  .sidebar { width: 300px; background: var(--card); border-right: 1px solid var(--border); display: flex; flex-direction: column; overflow: hidden; flex-shrink: 0; }
+  .sidebar-header { padding: 12px 16px; border-bottom: 1px solid var(--border); background: white; }
+  .sidebar-header h3 { font-family: 'DM Serif Display', serif; font-size: 0.95rem; margin-bottom: 2px; }
+  .sidebar-header p { font-size: 0.72rem; color: var(--muted); }
+  .instructions { padding: 9px 14px; background: #eaf4ff; border-bottom: 1px solid #b8d9f5; font-size: 0.72rem; color: #1a5a8a; line-height: 1.5; }
+  .instructions strong { display: block; margin-bottom: 1px; }
+  .accordion { flex: 1; overflow-y: auto; }
+  .acc-group { border-bottom: 1px solid var(--border); }
+  .acc-header { display: flex; align-items: center; gap: 10px; padding: 10px 14px; cursor: pointer; background: white; transition: background 0.15s; user-select: none; }
+  .acc-header:hover { background: #f8f6f2; }
+  .acc-dot { width: 14px; height: 14px; border-radius: 50%; flex-shrink: 0; }
+  .acc-title { font-size: 0.83rem; font-weight: 600; flex: 1; text-transform: capitalize; }
+  .acc-count { font-size: 0.7rem; color: var(--muted); background: var(--paper); padding: 2px 7px; border-radius: 10px; }
+  .acc-arrow { font-size: 0.65rem; color: var(--muted); transition: transform 0.2s; }
+  .acc-arrow.open { transform: rotate(180deg); }
+  .acc-body { display: none; background: var(--card); }
+  .acc-body.open { display: block; }
+  .loc-item { display: flex; align-items: center; gap: 9px; padding: 8px 14px 8px 20px; cursor: pointer; border-left: 3px solid transparent; transition: all 0.15s; border-bottom: 1px solid rgba(0,0,0,0.04); }
+  .loc-item:hover { background: #f0ece4; border-left-color: var(--border); }
+  .loc-item.selected-a { background: #fff0f0 !important; border-left-color: var(--accent) !important; }
+  .loc-item.selected-b { background: #f0f7ff !important; border-left-color: var(--accent2) !important; }
+  .loc-item.hovered { background: #fffbe6 !important; border-left-color: #f39c12 !important; }
+  .loc-num { width: 22px; height: 22px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 0.62rem; font-weight: 700; color: white; flex-shrink: 0; }
+  .loc-name { font-size: 0.8rem; flex: 1; line-height: 1.3; }
+  .tag { font-size: 0.62rem; font-weight: 700; padding: 2px 6px; border-radius: 8px; letter-spacing: 0.05em; flex-shrink: 0; }
+  .tag-a { background: var(--accent); color: white; }
+  .tag-b { background: var(--accent2); color: white; }
+  .info-panel { padding: 11px 14px; border-top: 1px solid var(--border); background: white; flex-shrink: 0; }
+  .info-empty { text-align: center; color: var(--muted); font-size: 0.76rem; padding: 5px 0; }
+  .route-result { display: none; }
+  .route-result.visible { display: block; }
+  .route-title { font-family: 'DM Serif Display', serif; font-size: 0.88rem; margin-bottom: 7px; }
+  .route-stats { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-bottom: 7px; }
+  .stat-box { background: var(--paper); border-radius: 7px; padding: 8px; text-align: center; }
+  .stat-value { font-family: 'DM Serif Display', serif; font-size: 1.2rem; line-height: 1; }
+  .stat-label { font-size: 0.6rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.08em; margin-top: 2px; }
+  .route-path { font-size: 0.73rem; color: var(--muted); display: flex; align-items: center; gap: 5px; flex-wrap: wrap; }
+  .route-point { font-weight: 600; color: var(--ink); }
+  .btn-clear { width: 100%; margin-top: 8px; padding: 7px; background: var(--ink); color: white; border: none; border-radius: 6px; font-family: 'DM Sans', sans-serif; font-size: 0.76rem; cursor: pointer; }
+  .btn-clear:hover { opacity: 0.8; }
+  .map-container { flex: 1; position: relative; }
+  #map { width: 100%; height: 100%; }
+  #map-tooltip { position: absolute; background: white; color: #1a1a2e; padding: 5px 12px; border-radius: 20px; font-size: 0.75rem; font-weight: 600; white-space: nowrap; pointer-events: none; display: none; z-index: 9999; box-shadow: 0 2px 8px rgba(0,0,0,0.2); }
+  .config-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.6); display: flex; align-items: center; justify-content: center; z-index: 99999; backdrop-filter: blur(3px); }
+  .config-box { background: white; border-radius: 16px; padding: 28px; max-width: 460px; width: 90%; box-shadow: 0 20px 60px rgba(0,0,0,0.3); }
+  .config-box h2 { font-family: 'DM Serif Display', serif; font-size: 1.4rem; margin-bottom: 5px; }
+  .config-box p { font-size: 0.82rem; color: var(--muted); margin-bottom: 16px; line-height: 1.5; }
+  .config-field { margin-bottom: 12px; }
+  .config-field label { display: block; font-size: 0.77rem; font-weight: 600; margin-bottom: 4px; }
+  .config-field input { width: 100%; padding: 9px 11px; border: 1px solid var(--border); border-radius: 8px; font-family: 'DM Sans', sans-serif; font-size: 0.82rem; outline: none; transition: border 0.2s; }
+  .config-field input:focus { border-color: var(--accent2); }
+  .hint { font-size: 0.69rem; color: var(--muted); margin-top: 3px; }
+  .config-actions { display: flex; gap: 10px; margin-top: 16px; }
+  .btn-primary { flex: 1; padding: 10px; background: var(--ink); color: white; border: none; border-radius: 8px; font-family: 'DM Sans', sans-serif; font-size: 0.82rem; font-weight: 600; cursor: pointer; }
+  .btn-primary:hover { opacity: 0.85; }
+  .btn-demo { flex: 1; padding: 10px; background: var(--paper); color: var(--ink); border: 1px solid var(--border); border-radius: 8px; font-family: 'DM Sans', sans-serif; font-size: 0.82rem; cursor: pointer; }
+  .btn-demo:hover { background: white; }
+  .loading-overlay { position: absolute; inset: 0; background: var(--paper); display: flex; align-items: center; justify-content: center; flex-direction: column; gap: 12px; z-index: 100; }
+  .spinner { width: 32px; height: 32px; border: 3px solid var(--border); border-top-color: var(--ink); border-radius: 50%; animation: spin 0.8s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .loading-text { font-size: 0.8rem; color: var(--muted); }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">Mapa<span>Rutas</span></div>
+  <div class="sheet-selector">
+    <label>📍 Ciudad:</label>
+    <select class="sheet-select" id="sheetSelect" disabled onchange="changeSheet(this.value)">
+      <option value="">— Cargando... —</option>
+    </select>
+  </div>
+  <div class="badge">🚶 A pie</div>
+</header>
+
+<div class="main">
+  <div class="sidebar">
+    <div class="sidebar-header">
+      <h3 id="sidebarTitle">📍 Ubicaciones</h3>
+      <p>Selecciona dos puntos para calcular la ruta</p>
+    </div>
+    <div class="instructions">
+      <strong>¿Cómo funciona?</strong>
+      1️⃣ Elige ciudad · 2️⃣ Clic en varios puntos · 3️⃣ Ver ruta a pie acumulada
+    </div>
+    <div class="accordion" id="accordion"></div>
+    <div class="info-panel">
+      <div class="info-empty" id="infoEmpty">Selecciona dos ubicaciones</div>
+      <div class="route-result" id="routeResult">
+        <div class="route-title">🗺️ Ruta calculada</div>
+        <div class="route-stats" style="grid-template-columns:1fr 1fr 1fr">
+          <div class="stat-box"><div class="stat-value" id="statDist">—</div><div class="stat-label">Distancia</div></div>
+          <div class="stat-box"><div class="stat-value" id="statTime">—</div><div class="stat-label">Tiempo</div></div>
+          <div class="stat-box"><div class="stat-value" id="statStops">—</div><div class="stat-label">Paradas</div></div>
+        </div>
+        <div class="route-path">
+          <span class="route-point" id="routeFrom">—</span><span>→</span><span class="route-point" id="routeTo">—</span>
+        </div>
+        <div id="stopsList" style="margin-top:8px;"></div>
+        <button class="btn-clear" onclick="clearRoute()">✕ Limpiar selección</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="map-container">
+    <div class="loading-overlay" id="loadingOverlay">
+      <div class="spinner"></div>
+      <div class="loading-text" id="loadingText">Iniciando...</div>
+    </div>
+    <div id="map"></div>
+    <div id="map-tooltip"></div>
+  </div>
+</div>
+
+<div class="config-overlay" id="configOverlay">
+  <div class="config-box">
+    <h2>⚙️ Configuración</h2>
+    <p>Introduce tus credenciales para conectar el mapa con tus datos.</p>
+    <div class="config-field">
+      <label>🔑 Google Maps API Key</label>
+      <input type="text" id="mapsKey" value="AIzaSyDyhB1B629ebexLeS8TSJT8mwv0IkYpd50">
+      <div class="hint">Necesaria para mostrar el mapa y calcular rutas a pie</div>
+    </div>
+    <div class="config-field">
+      <label>📊 ID de tu Google Sheet</label>
+      <input type="text" id="sheetId" value="16nUw4JEigLAGFlVD7hdPxF6oIGVA-rS6Is1cI7NuSIM">
+      <div class="hint">docs.google.com/spreadsheets/d/<b>[ESTE-ID]</b>/edit</div>
+    </div>
+    <div class="config-actions">
+      <button class="btn-demo" onclick="loadDemo()">🎯 Demo</button>
+      <button class="btn-primary" onclick="startApp()">Conectar →</button>
+    </div>
+  </div>
+</div>
+
+<script>
+  let map, directionsService;
+  let directionsRenderers = []; // one per segment
+  let selectedPoints = [];      // ordered list of selected indices
+  let markers = [];
+  let locations = [];
+  let currentApiKey = '';
+  let currentSheetId = '';
+  let hoveredIdx = null;
+
+  const TIPO_COLORS = {
+    'aparcamiento': '#546e7a', 'autoridades': '#1565c0', 'ayuntamiento': '#2980b9',
+    'deporte': '#e65100', 'ensenanza': '#6a1b9a', 'enseñanza': '#6a1b9a',
+    'ubicaciones': '#424242', 'parque': '#2e7d32', 'salud': '#c62828',
+    'transporte': '#ad1457', 'otros': '#7f8c8d'
+  };
+  function tipoColor(tipo) { return TIPO_COLORS[(tipo||'').toLowerCase()] || TIPO_COLORS['otros']; }
+
+  const DEMO_LOCATIONS = [
+    { name:"Polideportivo Municipal", lat:40.4200, lng:-3.7100, tipo:'deporte' },
+    { name:"Parque del Retiro", lat:40.4153, lng:-3.6844, tipo:'parque' },
+    { name:"Ayuntamiento de Madrid", lat:40.4155, lng:-3.7074, tipo:'ayuntamiento' },
+    { name:"Colegio San José", lat:40.4180, lng:-3.7010, tipo:'ensenanza' },
+    { name:"Hospital La Paz", lat:40.4760, lng:-3.6890, tipo:'salud' },
+    { name:"Estación de Atocha", lat:40.4065, lng:-3.6895, tipo:'transporte' },
+    { name:"Puerta del Sol", lat:40.4168, lng:-3.7038, tipo:'ubicaciones' },
+    { name:"Parking Centro", lat:40.4160, lng:-3.7060, tipo:'aparcamiento' },
+    { name:"Comisaría Centro", lat:40.4190, lng:-3.7020, tipo:'autoridades' },
+  ];
+
+  function loadDemo() {
+    document.getElementById('configOverlay').style.display = 'none';
+    const sel = document.getElementById('sheetSelect');
+    sel.innerHTML = '<option value="demo">Madrid (demo)</option>';
+    sel.disabled = false;
+    locations = DEMO_LOCATIONS;
+    renderAccordion();
+    initLeafletMap();
+  }
+
+  function startApp() {
+    const key = document.getElementById('mapsKey').value.trim();
+    const sheetId = document.getElementById('sheetId').value.trim();
+    if (!key) { alert('Introduce tu Google Maps API Key'); return; }
+    if (!sheetId) { alert('Introduce el ID de tu Google Sheet'); return; }
+    currentApiKey = key;
+    currentSheetId = sheetId;
+    document.getElementById('configOverlay').style.display = 'none';
+    setLoading('Conectando con Google...');
+    loadGoogleMapsScript(key, () => fetchSheetTabs(sheetId, key));
+  }
+
+  function loadGoogleMapsScript(key, callback) {
+    if (window.google && window.google.maps) { callback(); return; }
+    window._gmapsReady = callback;
+    const s = document.createElement('script');
+    s.src = `https://maps.googleapis.com/maps/api/js?key=${key}&callback=_gmapsReady`;
+    s.async = true;
+    document.head.appendChild(s);
+  }
+
+  async function fetchSheetTabs(sheetId, key) {
+    setLoading('Detectando ciudades...');
+    try {
+      const res = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${sheetId}?key=${key}`);
+      const data = await res.json();
+      if (data.error) throw new Error(data.error.message);
+      const sheets = data.sheets.map(s => s.properties.title);
+      const sel = document.getElementById('sheetSelect');
+      sel.innerHTML = sheets.map(s => `<option value="${s}">${s}</option>`).join('');
+      sel.disabled = false;
+      loadSheetData(sheets[0]);
+    } catch(e) {
+      hideLoading();
+      alert('Error: ' + e.message);
+      document.getElementById('configOverlay').style.display = 'flex';
+    }
+  }
+
+  function changeSheet(sheetName) {
+    if (!sheetName || !currentApiKey) return;
+    clearRoute(); clearMarkers();
+    loadSheetData(sheetName);
+  }
+
+  async function loadSheetData(sheetName) {
+    setLoading(`Cargando ${sheetName}...`);
+    try {
+      const url = `https://sheets.googleapis.com/v4/spreadsheets/${currentSheetId}/values/${encodeURIComponent(sheetName)}!A:C?key=${currentApiKey}`;
+      const res = await fetch(url);
+      const data = await res.json();
+      if (data.error) throw new Error(data.error.message);
+      if (!data.values || data.values.length < 2) throw new Error('La hoja está vacía');
+      locations = data.values.slice(0).map(row => {
+        const coords = (row[1] || '').split(',');
+        return { name: row[0], lat: parseFloat(coords[0]), lng: parseFloat(coords[1]), tipo: (row[2] || 'otros').toLowerCase().trim() };
+      }).filter(l => l.name && !isNaN(l.lat) && !isNaN(l.lng));
+      if (!locations.length) throw new Error('No hay coordenadas válidas');
+      document.getElementById('sidebarTitle').textContent = `📍 ${sheetName}`;
+      renderAccordion();
+      renderGoogleMapMarkers();
+      hideLoading();
+    } catch(e) {
+      hideLoading();
+      alert('Error: ' + e.message);
+    }
+  }
+
+  function renderAccordion() {
+    const groups = {};
+    locations.forEach((loc, i) => {
+      const t = loc.tipo || 'otros';
+      if (!groups[t]) groups[t] = [];
+      groups[t].push({ ...loc, idx: i });
+    });
+    document.getElementById('accordion').innerHTML = Object.entries(groups).map(([tipo, locs]) => {
+      const items = locs.map(loc => `
+        <div class="loc-item" id="loc-${loc.idx}" onclick="selectLocation(${loc.idx})">
+          <div class="loc-num" style="background:${tipoColor(tipo)}"></div>
+          <div class="loc-name">${loc.name}</div>
+          <span class="tag" id="tag-${loc.idx}" style="display:none"></span>
+        </div>`).join('');
+      return `
+        <div class="acc-group">
+          <div class="acc-header" onclick="toggleGroup('grp-${tipo}')">
+            <div class="acc-dot" style="background:${tipoColor(tipo)}"></div>
+            <span class="acc-title">${tipo}</span>
+            <span class="acc-count">${locs.length}</span>
+            <span class="acc-arrow" id="arrow-grp-${tipo}">▼</span>
+          </div>
+          <div class="acc-body" id="grp-${tipo}">${items}</div>
+        </div>`;
+    }).join('');
+  }
+
+  function toggleGroup(id) {
+    const body = document.getElementById(id);
+    const arrow = document.getElementById('arrow-' + id);
+    const isOpen = body.classList.toggle('open');
+    arrow.classList.toggle('open', isOpen);
+  }
+
+  function renderGoogleMapMarkers() {
+    clearMarkers();
+    if (!map) {
+      map = new google.maps.Map(document.getElementById('map'), {
+        center: { lat: locations[0].lat, lng: locations[0].lng }, zoom: 14,
+        styles: [{ featureType: 'all', elementType: 'geometry', stylers: [{ saturation: -15 }] }]
+      });
+      directionsService = new google.maps.DirectionsService();
+      setupHover();
+    }
+    const bounds = new google.maps.LatLngBounds();
+    locations.forEach((loc, i) => {
+      bounds.extend({ lat: loc.lat, lng: loc.lng });
+      const marker = new google.maps.Marker({
+        position: { lat: loc.lat, lng: loc.lng }, map,
+        icon: { path: google.maps.SymbolPath.CIRCLE, scale: 14, fillColor: tipoColor(loc.tipo), fillOpacity: 1, strokeColor: 'white', strokeWeight: 2 }
+      });
+      marker.addListener('click', () => selectLocation(i));
+      markers.push(marker);
+    });
+    if (!map._initialBoundsDone) { map.fitBounds(bounds, { padding: 60 }); map._initialBoundsDone = true; }
+  }
+
+  function setupHover() {
+    const mapEl = document.getElementById('map');
+    const tooltip = document.getElementById('map-tooltip');
+
+    mapEl.addEventListener('mousemove', (e) => {
+      if (!markers.length || !map.getProjection() || !map.getBounds()) return;
+      const rect = mapEl.getBoundingClientRect();
+      const mx = e.clientX - rect.left;
+      const my = e.clientY - rect.top;
+      const proj = map.getProjection();
+      const ne = proj.fromLatLngToPoint(map.getBounds().getNorthEast());
+      const sw = proj.fromLatLngToPoint(map.getBounds().getSouthWest());
+
+      let closest = null;
+      let closestDist = 24;
+      markers.forEach((marker, i) => {
+        const lp = proj.fromLatLngToPoint(marker.getPosition());
+        const px = (lp.x - sw.x) / (ne.x - sw.x) * rect.width;
+        const py = (lp.y - ne.y) / (sw.y - ne.y) * rect.height;
+        const dist = Math.sqrt((mx - px) ** 2 + (my - py) ** 2);
+        if (dist < closestDist) { closestDist = dist; closest = i; }
+      });
+
+      if (closest !== hoveredIdx) {
+        if (hoveredIdx !== null) {
+          const l = locations[hoveredIdx];
+          markers[hoveredIdx].setIcon({ path: google.maps.SymbolPath.CIRCLE, scale: 14, fillColor: tipoColor(l.tipo), fillOpacity: 1, strokeColor: 'white', strokeWeight: 2 });
+          const el = document.getElementById('loc-' + hoveredIdx);
+          if (el) el.classList.remove('hovered');
+        }
+        hoveredIdx = closest;
+        if (closest !== null) {
+          const l = locations[closest];
+          markers[closest].setIcon({ path: google.maps.SymbolPath.CIRCLE, scale: 19, fillColor: tipoColor(l.tipo), fillOpacity: 1, strokeColor: 'white', strokeWeight: 2.5 });
+          tooltip.textContent = l.name;
+          tooltip.style.display = 'block';
+          const el = document.getElementById('loc-' + closest);
+          if (el) { el.classList.add('hovered'); el.scrollIntoView({ behavior: 'smooth', block: 'nearest' }); }
+        } else {
+          tooltip.style.display = 'none';
+        }
+      }
+      if (closest !== null) {
+        tooltip.style.left = (mx - tooltip.offsetWidth / 2) + 'px';
+        tooltip.style.top = (my - 46) + 'px';
+      }
+    });
+
+    mapEl.addEventListener('mouseleave', () => {
+      if (hoveredIdx !== null) {
+        const l = locations[hoveredIdx];
+        markers[hoveredIdx].setIcon({ path: google.maps.SymbolPath.CIRCLE, scale: 14, fillColor: tipoColor(l.tipo), fillOpacity: 1, strokeColor: 'white', strokeWeight: 2 });
+        const el = document.getElementById('loc-' + hoveredIdx);
+        if (el) el.classList.remove('hovered');
+        hoveredIdx = null;
+      }
+      tooltip.style.display = 'none';
+    });
+  }
+
+  function clearMarkers() { markers.forEach(m => m.setMap && m.setMap(null)); markers = []; }
+
+  function initLeafletMap() {
+    if (!document.querySelector('link[href*="leaflet"]')) {
+      const css = document.createElement('link'); css.rel = 'stylesheet';
+      css.href = 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css';
+      document.head.appendChild(css);
+    }
+    if (window.L) { renderLeafletMarkers(); return; }
+    const js = document.createElement('script');
+    js.src = 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js';
+    js.onload = renderLeafletMarkers;
+    document.head.appendChild(js);
+  }
+
+  function renderLeafletMarkers() {
+    hideLoading();
+    if (!window._leafletMap) {
+      window._leafletMap = L.map('map').setView([locations[0].lat, locations[0].lng], 14);
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '© OpenStreetMap' }).addTo(window._leafletMap);
+    }
+    locations.forEach((loc, i) => {
+      const color = tipoColor(loc.tipo);
+      const icon = L.divIcon({ html: `<div style="background:${color};width:30px;height:30px;border-radius:50%;border:2.5px solid white;box-shadow:0 2px 6px rgba(0,0,0,0.25)"></div>`, iconSize:[30,30], iconAnchor:[15,15], className:'' });
+      const m = L.marker([loc.lat, loc.lng], { icon }).addTo(window._leafletMap).bindPopup(`<b>${loc.name}</b>`);
+      m.on('click', () => selectLocation(i));
+      markers.push(m);
+    });
+    window.calculateRoute = calculateRouteLeaflet;
+  }
+
+  const POINT_COLORS = ['#e74c3c','#e67e22','#f1c40f','#2ecc71','#1abc9c','#3498db','#9b59b6','#e91e63','#ff5722','#00bcd4'];
+  function orderLabel(order) { return String.fromCharCode(65 + order); } // A, B, C, D...
+
+  function selectLocation(i) {
+    // Copiar nombre al portapapeles
+    navigator.clipboard.writeText(locations[i].name).catch(() => {
+      const ta = document.createElement('textarea');
+      ta.value = locations[i].name;
+      document.body.appendChild(ta);
+      ta.select();
+      document.execCommand('copy');
+      document.body.removeChild(ta);
+    });
+
+    // Si ya está seleccionado, quitarlo
+    const existingIdx = selectedPoints.indexOf(i);
+    if (existingIdx !== -1) {
+      selectedPoints.splice(existingIdx, 1);
+      updateAllTags();
+      recalculateRoute();
+      return;
+    }
+    selectedPoints.push(i);
+    updateAllTags();
+    if (selectedPoints.length >= 2) recalculateRoute();
+  }
+
+  function updateAllTags() {
+    // Limpiar todos
+    locations.forEach((_, i) => {
+      const item = document.getElementById('loc-' + i);
+      const tag = document.getElementById('tag-' + i);
+      if (item) item.classList.remove('selected-a','selected-b','selected-multi');
+      if (tag) tag.style.display = 'none';
+    });
+    // Redibujar los seleccionados
+    selectedPoints.forEach((locIdx, order) => {
+      const item = document.getElementById('loc-' + locIdx);
+      const tag = document.getElementById('tag-' + locIdx);
+      if (!item || !tag) return;
+      const label = orderLabel(order);
+      const color = POINT_COLORS[order % POINT_COLORS.length];
+      item.style.borderLeftColor = color;
+      item.style.background = color + '18';
+      tag.textContent = label;
+      tag.style.background = color;
+      tag.style.color = 'white';
+      tag.style.display = 'inline-block';
+      tag.className = 'tag';
+    });
+  }
+
+  function clearRoute() {
+    selectedPoints = [];
+    updateAllTags();
+    clearRenderers();
+    if (window._routeLayers) { window._routeLayers.forEach(l => window._leafletMap && window._leafletMap.removeLayer(l)); window._routeLayers = []; }
+    document.getElementById('infoEmpty').style.display = 'block';
+    document.getElementById('routeResult').classList.remove('visible');
+  }
+
+  function clearRenderers() {
+    directionsRenderers.forEach(r => r.setMap(null));
+    directionsRenderers = [];
+  }
+
+  function recalculateRoute() {
+    if (window._leafletMap) { recalculateRouteLeaflet(); return; }
+    if (!map || !directionsService || selectedPoints.length < 2) return;
+    clearRenderers();
+
+    let totalDist = 0, totalSecs = 0;
+    let completed = 0;
+    const segments = selectedPoints.length - 1;
+    const segmentColors = ['#e74c3c','#e67e22','#f1c40f','#2ecc71','#1abc9c','#3498db','#9b59b6','#e91e63'];
+
+    for (let s = 0; s < segments; s++) {
+      const a = locations[selectedPoints[s]];
+      const b = locations[selectedPoints[s+1]];
+      const color = segmentColors[s % segmentColors.length];
+      const renderer = new google.maps.DirectionsRenderer({
+        suppressMarkers: true,
+        preserveViewport: true,
+        polylineOptions: { strokeColor: color, strokeWeight: 5, strokeOpacity: 0.85 }
+      });
+      renderer.setMap(map);
+      directionsRenderers.push(renderer);
+
+      directionsService.route({
+        origin: { lat: a.lat, lng: a.lng },
+        destination: { lat: b.lat, lng: b.lng },
+        travelMode: google.maps.TravelMode.WALKING
+      }, (result, status) => {
+        if (status === 'OK') {
+          renderer.setDirections(result);
+          const leg = result.routes[0].legs[0];
+          totalDist += leg.distance.value;
+          totalSecs += leg.duration.value;
+          completed++;
+          if (completed === segments) {
+            const distStr = totalDist >= 1000 ? (totalDist/1000).toFixed(2) + ' km' : totalDist + ' m';
+            const mins = Math.round(totalSecs / 60);
+            const timeStr = mins < 60 ? `${mins} min` : `${Math.floor(mins/60)}h ${mins%60}m`;
+            const from = locations[selectedPoints[0]].name;
+            const to = locations[selectedPoints[selectedPoints.length-1]].name;
+            showRouteInfo(distStr, timeStr, from, to, selectedPoints.length);
+          }
+        }
+      });
+    }
+  }
+  function calculateRoute() { recalculateRoute(); }
+
+  async function recalculateRouteLeaflet() {
+    if (selectedPoints.length < 2) return;
+    if (window._routeLayers) window._routeLayers.forEach(l => window._leafletMap.removeLayer(l));
+    window._routeLayers = [];
+    const segColors = ['#e74c3c','#e67e22','#f1c40f','#2ecc71','#1abc9c','#3498db','#9b59b6','#e91e63'];
+    let totalDist = 0, totalSecs = 0;
+    const allCoords = [];
+    for (let s = 0; s < selectedPoints.length - 1; s++) {
+      const a = locations[selectedPoints[s]], b = locations[selectedPoints[s+1]];
+      try {
+        const res = await fetch(`https://router.project-osrm.org/route/v1/foot/${a.lng},${a.lat};${b.lng},${b.lat}?overview=full&geometries=geojson`);
+        const data = await res.json();
+        if (!data.routes?.length) continue;
+        const route = data.routes[0];
+        totalDist += route.distance;
+        totalSecs += route.duration;
+        const coords = route.geometry.coordinates.map(c=>[c[1],c[0]]);
+        allCoords.push(...coords);
+        const layer = L.polyline(coords, { color: segColors[s % segColors.length], weight: 5, opacity: 0.85 }).addTo(window._leafletMap);
+        window._routeLayers.push(layer);
+      } catch(e) {}
+    }
+    if (allCoords.length) window._leafletMap.fitBounds(L.polyline(allCoords).getBounds(), { padding:[40,40] });
+    const dist = totalDist >= 1000 ? (totalDist/1000).toFixed(2) + ' km' : Math.round(totalDist) + ' m';
+    const mins = Math.round(totalSecs/60);
+    const time = mins < 60 ? `${mins} min` : `${Math.floor(mins/60)}h ${mins%60}m`;
+    showRouteInfo(dist, time, locations[selectedPoints[0]].name, locations[selectedPoints[selectedPoints.length-1]].name, selectedPoints.length);
+  }
+
+  function showRouteInfo(dist, time, from, to, stops) {
+    document.getElementById('infoEmpty').style.display = 'none';
+    document.getElementById('routeResult').classList.add('visible');
+    document.getElementById('statDist').textContent = dist;
+    document.getElementById('statTime').textContent = time;
+    document.getElementById('routeFrom').textContent = from;
+    document.getElementById('routeTo').textContent = to;
+    const stopsEl = document.getElementById('statStops');
+    if (stopsEl) stopsEl.textContent = stops + ' paradas';
+    // Render stops list
+    const stopsList = document.getElementById('stopsList');
+    if (stopsList) {
+      stopsList.innerHTML = selectedPoints.map((locIdx, order) => {
+        const loc = locations[locIdx];
+        const color = POINT_COLORS[order % POINT_COLORS.length];
+        const label = orderLabel(order);
+        return `<div style="display:flex;align-items:center;gap:7px;padding:4px 0;border-bottom:1px solid #f0ece4">
+          <div style="width:20px;height:20px;border-radius:50%;background:${color};display:flex;align-items:center;justify-content:center;color:white;font-size:0.6rem;font-weight:700;flex-shrink:0">${label}</div>
+          <span style="font-size:0.76rem;color:#1a1a2e">${loc.name}</span>
+        </div>`;
+      }).join('');
+    }
+  }
+
+  function setLoading(msg) { document.getElementById('loadingText').textContent = msg; document.getElementById('loadingOverlay').style.display = 'flex'; }
+  function hideLoading() { document.getElementById('loadingOverlay').style.display = 'none'; }
+
+  window.clearRoute = clearRoute;
+  window.calculateRoute = calculateRoute;
+  window.changeSheet = changeSheet;
+  window.toggleGroup = toggleGroup;
+</script>
+</body>
+</html>
